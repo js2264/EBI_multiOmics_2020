@@ -1,0 +1,63 @@
+---
+title: "ATAC-seq"
+date: "2020-01-28"
+author: Jacques SERIZAY
+bibliography: bibliography.bib
+---
+
+# ATAC-seq
+
+IMPORTANT: This project has been written by Jacques SERIZAY, for the purpose of 
+analysing public datasets. 
+
+---  
+
+Today you will be focusing on investigating the ATAC-seq data generated in 
+Janes et al., 2018: "Chromatin accessibility dynamics across C. elegans 
+development and ageing".
+
+
+## Set up environment
+```{r collapse = TRUE}
+    PROJECT_PATH <- getwd()
+    require(tidyverse)
+    require(rtracklayer)
+    require(org.Ce.eg.db)
+    require(biomaRt)
+```
+
+## Load preveious work
+
+```{r collapse = TRUE}
+    load('results/Day2.RData')
+```
+
+---
+
+## Get the ATAC-seq aging data
+The data can be found [online](https://elifesciences.org/articles/37344) 
+or reformatted for the purpose of the course in ./data/ATAC-seq.gff3 
+
+### Questions: 
+- Which format is the ATAC-seq.gff3 file? What does the file contain?
+- Look at the cluster information: can you visualize variations of 
+promoter accessibility during aging? // (boxplot)
+- To be even better: look into Seqplots software... 
+- In which tissue(s) are the associated genes transcribed & translated? 
+(Hint: relate to yesterday's work...)
+
+## Investigate the genes associated to varying promoters during aging
+
+### Questions: 
+- What is the function of genes going up (down) during aging? // gProfiler
+- What are their counterpart in mammals? // BiomaRt
+- What are the diseases associated to these genes? // DOSE package??
+- Comment on the rationale of the analysis: we are looking at 
+genes associated to promoters de-regulated during aging... 
+
+---  
+
+## SessionInfo 
+```{r echo=FALSE}
+    sessionInfo()
+```

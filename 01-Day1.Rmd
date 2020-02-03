@@ -1,0 +1,16 @@
+---
+title: "Introduction to Multiomics Data Integration and Visualisation "
+author: Jacques SERIZAY
+date: "`r Sys.Date()`"
+---
+
+# Introduction
+
+The project focuses on C. elegans and the changes occuring at multiple 
+levels (chromatin accessibility, gene expression and protein levels) 
+during aging. 
+
+To build the HTML version of this set of files, you can use: 
+```{r eval = FALSE}
+    bookdown::render_book('01-Day1.Rmd', output_format = 'bookdown::gitbook')
+```
