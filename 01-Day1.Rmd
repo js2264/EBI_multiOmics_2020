@@ -1,5 +1,5 @@
 ---
-title: "Introduction to Multiomics Data Integration and Visualisation "
+title: "Introduction to Multiomics Data Integration and Visualisation"
 author: Jacques SERIZAY
 date: "`r Sys.Date()`"
 ---
