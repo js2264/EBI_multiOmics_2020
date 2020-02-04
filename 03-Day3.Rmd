@@ -18,17 +18,22 @@ development and ageing".
 
 
 ## Set up environment
-```{r collapse = TRUE}
+```{r collapse = TRUE, eval = FALSE}
     PROJECT_PATH <- getwd()
     require(tidyverse)
     require(rtracklayer)
+    require(htmlwidgets)
+    require(gprofiler2)
+    require(DOSE)
+    require(clusterProfiler)
+    #
+    require(org.Hs.eg.db)
     require(org.Ce.eg.db)
-    require(biomaRt)
 ```
 
-## Load preveious work
+## Load previous work
 
-```{r collapse = TRUE}
+```{r collapse = TRUE, eval = FALSE}
     load('results/Day2.RData')
 ```
 
@@ -36,28 +41,105 @@ development and ageing".
 
 ## Get the ATAC-seq aging data
 The data can be found [online](https://elifesciences.org/articles/37344) 
-or reformatted for the purpose of the course in ./data/ATAC-seq.gff3 
+or reformatted for the purpose of the course in ./data/ATAC_aging.gff3 
 
 ### Questions: 
-- Which format is the ATAC-seq.gff3 file? What does the file contain?
+- Which format is the ATAC_aging.gff3 file? What does the file contain?
 - Look at the cluster information: can you visualize variations of 
-promoter accessibility during aging? // (boxplot)
+promoter accessibility during aging? // (lineplots)
 - To be even better: look into Seqplots software... 
 - In which tissue(s) are the associated genes transcribed & translated? 
 (Hint: relate to yesterday's work...)
 
+```{r collapse = TRUE, eval = FALSE}
+    REs <- rtracklayer::import('data/ATAC-seq_aging.gff3')
+    ATAC_aging <- mcols(REs)[, 8:12] %>% 
+        data.frame() %>% 
+        data.matrix() %>% 
+        as.data.frame() 
+    # Visualization in R
+    df <- data.frame(
+        locus = REs$locus,
+        apply(ATACage, 1, function(ROW) {log2(ROW/mean(ROW))}) %>% t() %>% data.frame(),
+        cluster = REs$ageing_prom_cluster_label
+    ) %>% 
+        gather(stage, expr, -cluster, -locus) %>%
+        mutate(stage = factor(stage, levels = c('FPM_ATAC_aYA', 'FPM_ATAC_aD3', 'FPM_ATAC_aD7', 'FPM_ATAC_aD10', 'FPM_ATAC_aD14'))) %>%
+        filter(cluster != '.')
+    p <- ggplot(df, aes(x = stage, y = expr, color = cluster, group = locus)) + 
+        geom_line(alpha = 0.05) + 
+        theme_classic() + 
+        facet_wrap(~cluster) 
+    # Use SeqPlots to visualize heatmaps
+    for (cluster in levels(df$cluster)) {
+        export(REs[REs$ageing_prom_cluster_label == cluster], paste0('ATAC_cluster-', cluster, '.bed'))
+    }
+    # Association between REs and proteins
+    list_genes_aging <- lapply(levels(df$cluster), function(cluster) {
+        proms <- REs[REs$ageing_prom_cluster_label == cluster & REs$regulatory_class %in% c('bidirect-promoter', 'fwd-promoter', 'rev-promoter')]
+        genes_cluster <- proms$WormBaseID %>% as.character() %>% strsplit(',') %>% unlist()
+        return(genes_cluster)
+    }) %>% setNames(levels(df$cluster))
+```
+
 ## Investigate the genes associated to varying promoters during aging
 
 ### Questions: 
-- What is the function of genes going up (down) during aging? // gProfiler
-- What are their counterpart in mammals? // BiomaRt
-- What are the diseases associated to these genes? // DOSE package??
+- What is the function of genes going up (down) during aging?
+- What are their counterpart in mammals?
+- What are the diseases associated to these genes?
 - Comment on the rationale of the analysis: we are looking at 
 genes associated to promoters de-regulated during aging... 
+
+```{r collapse = TRUE, eval = FALSE}
+    # GO enrichment analysis 
+    genes_down <- unique(unlist(list_genes_aging[2:5]))
+    genes_up <- unique(unlist(list_genes_aging[6:9]))
+    gos <- gost(
+        list(
+            up = genes_up, 
+            down = genes_down
+        ),
+        organism = 'celegans', 
+        multi_query = TRUE, 
+        user_threshold = 0.01, 
+        source = c('GO:BP', 'GO:MF', 'GO:CC')
+    )
+    p <- gostplot(gos, capped = TRUE, interactive = TRUE)
+    saveWidget(p, 'GOs.html')
+    # Homo sapiens homologs
+    ensembl <- useDataset("celegans_gene_ensembl", mart = useMart("ensembl"))
+    human_homologues_down <- getBM(
+        filters = c("ensembl_gene_id"),
+        values = genes_down, 
+        attributes = c('ensembl_gene_id', 'hsapiens_homolog_ensembl_gene'),
+        mart = ensembl
+    )
+    human_homologues_up <- getBM(
+        filters = c("ensembl_gene_id"),
+        values = genes_up, 
+        attributes = c('ensembl_gene_id', 'hsapiens_homolog_ensembl_gene'),
+        mart = ensembl
+    )
+    # DOSE
+    human_homologues_down_ENTREZ <- bitr(
+        human_homologues_down$hsapiens_homolog_ensembl_gene %>% '['(nchar(.) > 0), 
+        fromType = "ENSEMBL", 
+        toType = c("ENTREZID"), 
+        OrgDb = org.Hs.eg.db::org.Hs.eg.db
+    )$ENTREZID
+    diseases_enrichment_down <- enrichDO(
+        gene = human_homologues_down_ENTREZ, 
+        ont = "DO", 
+        pvalueCutoff = 0.01,
+        pAdjustMethod = "BH",
+        readable = TRUE
+    )
+```
 
 ---  
 
 ## SessionInfo 
-```{r echo=FALSE}
+```{r echo=FALSE, collapse = TRUE, eval = FALSE}
     sessionInfo()
 ```

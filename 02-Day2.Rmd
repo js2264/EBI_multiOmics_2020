@@ -19,7 +19,7 @@ subcellular-specific proteomes in Caenorhabditis elegans.",
 
 
 ## Set up environment
-```{r collapse = TRUE}
+```{r collapse = TRUE, eval = FALSE}
     PROJECT_PATH <- getwd()
     require(tidyverse)
     require(rtracklayer)
@@ -37,7 +37,7 @@ and reformatted for the purpose of the course. Get it in ./data/1602426_TableS4.
 - How many proteins are studied?
 - How many are in each tissue? 
 
-```{r collapse = TRUE}
+```{r collapse = TRUE, eval = FALSE}
     proteomics <- read.csv(
         file.path(PROJECT_PATH, 'data/1602426_TableS4_processed.csv'), 
         na.strings = "NA"
@@ -59,7 +59,7 @@ For this, we will rely on BiomaRt.
 - Why does the original dataset contain both types of IDs?
 - Are there proteins coming from the same gene? 
 
-```{r collapse = TRUE}
+```{r collapse = TRUE, eval = FALSE}
     # ensembl <- useDataset("celegans_gene_ensembl", mart = useMart("ensembl"))
     # ids <- getBM(
     #     attributes = c("uniprotswissprot", "uniprotsptrembl", "wormbase_gene"),
@@ -85,7 +85,7 @@ transcription factors annotated in C. elegans in the data folder...)
 - What do you think about this? Are the number of tissue-specific TFs
 consistent with the number of total TFs?
 
-```{r collapse = TRUE}
+```{r collapse = TRUE, eval = FALSE}
     list_prots <- lapply(
         levels(proteomics$Tissue.specific), 
         function(TISSUE) {
@@ -118,15 +118,23 @@ This is a .gff3 file, a format used to add specific information
 to gene annotations.
 
 ### Questions: 
-- Explain the fundamental differences between the 2 sets of data
+- Explain the fundamental differences between the 2 sets of data?
 - Are the experiments from the same developmental stage?
 - Are the two datasets corresponding to each other?
 - What are some good ways to represent the intersection between
 these datasets?
 
-```{r collapse = TRUE}
+```{r collapse = TRUE, eval = FALSE}
     genes <- rtracklayer::import('data/gene_annotations.gff3')
     names(genes) <- genes$ID
+    genes$which.tissues <- factor(genes$which.tissues, levels = c(
+        'Germline', 'Sperm', 'EarlyGermline', 'Neurons', 'Muscle', 'Hypod.', 'Intest.', 
+        'Germline_Neurons', 'Germline_Muscle', 'Germline_Hypod.', 'Germline_Intest.', 'Neurons_Muscle', 'Neurons_Hypod.', 'Neurons_Intest.', 'Muscle_Hypod.', 'Muscle_Intest.', 'Hypod._Intest.',
+        'Germline_Neurons_Muscle', 'Germline_Neurons_Hypod.', 'Germline_Neurons_Intest.', 'Germline_Muscle_Hypod.', 'Germline_Muscle_Intest.', 'Germline_Hypod._Intest.', 'Neurons_Muscle_Hypod.', 'Neurons_Muscle_Intest.', 'Neurons_Hypod._Intest.', 'Muscle_Hypod._Intest.', 
+        'Germline_Neurons_Muscle_Hypod.', 'Germline_Neurons_Muscle_Intest.', 'Germline_Neurons_Hypod._Intest.', 'Germline_Muscle_Hypod._Intest.', 'Neurons_Muscle_Hypod._Intest.', 
+        'Germline_Neurons_Muscle_Hypod._Intest.', 
+        'Soma', 'Ubiq.', 'Ubiq.-Reg', 'Unclassified', 'Low', 'non-prot-cod'
+    ))
     lapply(list_genes, function(g) {
         table(genes[g]$which.tissues)
     })
@@ -134,14 +142,14 @@ these datasets?
 
 ---  
 
-## Save the work!!
-```{r collapse = TRUE}
+## Save your work!!
+```{r collapse = TRUE, eval = FALSE}
     save.image('results/Day2.RData')
 ```
 
 --- 
 
 ## SessionInfo 
-```{r echo=FALSE}
+```{r echo=FALSE, collapse = TRUE, eval = FALSE}
     sessionInfo()
 ```
