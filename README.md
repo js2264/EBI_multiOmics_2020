@@ -7,5 +7,5 @@ Data Integration and Visualisation" in March 2020.
 To build the HTML version of this instructions, the following command 
 has been used: 
 ```{r}
-bookdown::render_book('01-Day1.Rmd', output_format = 'bookdown::gitbook')
+rmarkdown::render('doc/intructions.Rmd', output_format = 'rmdformats::readthedown')
 ```
