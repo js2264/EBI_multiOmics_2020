@@ -1,0 +1,383 @@
+---
+title: "Introduction to Multiomics Data Integration and Visualisation"
+author: Jacques SERIZAY
+date: "`r Sys.Date()`"
+output:
+    html_document:
+        theme: flatly
+        highlight: tango
+        preserve_yaml: true
+        code_folding: hide
+        code_download: true
+        number_sections: true
+        df_print: tibble
+        toc: true
+        toc_depth: 2
+        toc_float:
+            collapsed: false
+    prettydoc::html_pretty:
+        theme: hpstr
+    rmdformats::readthedown:
+        highlight: tango
+        code_folding: hide
+---
+
+# Day 1: Introduction
+
+Aging is the time-dependent functional decline that affects most 
+living organisms. The accumulation of cellular damage 
+is widely considered to be the general cause of aging, which explains
+why the studies from the last three decades have mostly focused on 
+the cellular aspects of aging. Currently, the aging hallmarks are: 
+genomic instability, telomere attrition, epigenetic alterations, 
+loss of proteostasis, deregulated nutrient sensing, mitochondrial 
+dysfunction, cellular senescence, stem cell exhaustion, 
+and altered intercellular communication. 
+
+However, aging should not be seen as a cellular disfunction but as an organismal process. 
+All the cells within an organism are undergoing aging, and not all of them
+are aging simultaneously. Similarly, different tissues are aging differently. XXX
+
+Aging research was inaugurated following the isolation of the first 
+long-lived strains in C. elegans. In the past three decades, the nematode played a fundamental 
+role in aging research. It is a powerful model organism when it comes to studying aging: 
+
+- It has a short life cycle (~ 21 days in normal conditions)
+- Mutants can be easily generated and phenotypically screened for aging defects
+- Its genome has been fully sequenced and presents fundamental resemblances with 
+that of more complex metazoans. 
+
+In this project, we will study XXX...
+
+---  
+
+# Day 2: Proteomics
+
+Today you will be focusing on analyzing the proteomics data generated in 
+Reinke et al., 2017: "In vivo mapping of tissue- and 
+subcellular-specific proteomes in Caenorhabditis elegans.",
+
+## Set up environment
+You need to make sure that you are working in the right 
+folder. Important packages will also be loaded at this point.
+
+```{r collapse = TRUE}
+    PROJECT_PATH <- getwd()
+    require(tidyverse)
+    require(rtracklayer)
+    require(org.Ce.eg.db)
+    require(biomaRt)
+```
+
+## Load and inspect the data
+The data has been fetched from [online](https://advances.sciencemag.org/highwire/filestream/195514/field_highwire_adjunct_files/1/1602426_TableS4.xlsx) 
+and reformatted for the purpose of the course. Get it in ./data/1602426_TableS4.csv. 
+
+### Questions: 
+- How many proteins are studied?
+- How many are in each tissue? 
+
+```{r collapse = TRUE, eval = FALSE}
+    proteomics <- read.csv(
+        file.path(PROJECT_PATH, 'data/1602426_TableS4_processed.csv'), 
+        na.strings = "NA"
+    )
+    str(proteomics)
+```
+
+## Adding gene information
+This file only contains the protein names. Eventually, we will be 
+looking at genes as well. The simplest approach is to convert everything
+to unique gene IDs. 
+For this, we will rely on BiomaRt.
+
+### Questions: 
+- What is the difference between Swissprot and Trembl? 
+- Why is there less annotations from SwissProt?
+- Why does the original dataset contain both types of IDs?
+- Are there proteins coming from the same gene? 
+
+```{r collapse = TRUE, eval = FALSE}
+    # ensembl <- useDataset("celegans_gene_ensembl", mart = useMart("ensembl"))
+    # ids <- getBM(
+    #     attributes = c("uniprotswissprot", "uniprotsptrembl", "wormbase_gene"),
+    #     mart = ensembl
+    # )
+    # You can also get the ids table from the data folder: 
+    ids <- read.table('data/proteins_genes_IDs.txt', header = TRUE, sep = '\t')
+    ids$protID <- paste0(ids$uniprotswissprot, ids$uniprotsptrembl)
+    proteomics$WormBaseID <- ids$wormbase_gene[match(proteomics$UniProtKB, ids$protID)]
+    proteomics <- proteomics[!is.na(proteomics$WormBaseID),]
+```
+
+## Separating into lists of tissue-specific proteins
+Let's figure out which proteins are specifically present in each tissue.
+
+### Questions: 
+- For each set of proteins, are they more cytoplasmic or nuclear-enriched? 
+- Which ones are transcription factors? (Hint: there is a list of all
+transcription factors annotated in C. elegans in the data folder...)
+- Can you say anything about the tissue-specific TFs? 
+- What do you think about this? Are the number of tissue-specific TFs
+consistent with the number of total TFs?
+
+```{r collapse = TRUE, eval = FALSE}
+    list_prots <- lapply(
+        levels(proteomics$Tissue.specific), 
+        function(TISSUE) {
+            proteomics$UniProtKB %>%
+                '['(proteomics$Tissue.specific == TISSUE & !is.na(proteomics$Tissue.specific)) %>% 
+                as.character()
+        }
+    ) %>% setNames(levels(proteomics$Tissue.specific))
+    list_genes <- lapply(
+        levels(proteomics$Tissue.specific), 
+        function(TISSUE) {
+            proteomics$WormBaseID %>%
+                '['(proteomics$Tissue.specific == TISSUE & !is.na(proteomics$Tissue.specific)) %>% 
+                as.character()
+        }
+    ) %>% setNames(levels(proteomics$Tissue.specific))
+    lengths(list_prots)
+    tfs <- readLines('data/TFs.txt')
+    lapply(list_prots, function(prots) {
+        prots[proteomics$WormBaseID[match(prots, proteomics$UniProtKB)] %in% tfs]
+    })
+```
+
+## Compare it to existing tissue-specific datasets from RNA-seq
+Let's see if this set of proteins overlap with tissue-specific
+gene annotation. For this, we can use the data in ./data/gene_annotations.gff3. 
+This is a .gff3 file, a format used to add specific information
+to gene annotations.
+
+### Questions: 
+- Explain the fundamental differences between the 2 sets of data?
+- Are the experiments from the same developmental stage?
+- Are the two datasets corresponding to each other?
+- What are some good ways to represent the intersection between
+these datasets?
+
+```{r collapse = TRUE, eval = FALSE}
+    genes <- rtracklayer::import('data/gene_annotations.gff3')
+    names(genes) <- genes$ID
+    genes$which.tissues <- factor(genes$which.tissues, levels = c(
+        'Germline', 'Sperm', 'EarlyGermline', 'Neurons', 'Muscle', 'Hypod.', 'Intest.', 
+        'Germline_Neurons', 'Germline_Muscle', 'Germline_Hypod.', 'Germline_Intest.', 'Neurons_Muscle', 'Neurons_Hypod.', 'Neurons_Intest.', 'Muscle_Hypod.', 'Muscle_Intest.', 'Hypod._Intest.',
+        'Germline_Neurons_Muscle', 'Germline_Neurons_Hypod.', 'Germline_Neurons_Intest.', 'Germline_Muscle_Hypod.', 'Germline_Muscle_Intest.', 'Germline_Hypod._Intest.', 'Neurons_Muscle_Hypod.', 'Neurons_Muscle_Intest.', 'Neurons_Hypod._Intest.', 'Muscle_Hypod._Intest.', 
+        'Germline_Neurons_Muscle_Hypod.', 'Germline_Neurons_Muscle_Intest.', 'Germline_Neurons_Hypod._Intest.', 'Germline_Muscle_Hypod._Intest.', 'Neurons_Muscle_Hypod._Intest.', 
+        'Germline_Neurons_Muscle_Hypod._Intest.', 
+        'Soma', 'Ubiq.', 'Ubiq.-Reg', 'Unclassified', 'Low', 'non-prot-cod'
+    ))
+    lapply(list_genes, function(g) {
+        table(genes[g]$which.tissues)
+    })
+```
+
+## Save your work!!
+Don't forget to save your progress!
+
+```{r collapse = TRUE, eval = FALSE}
+    save.image('results/Day2.RData')
+```
+
+--- 
+
+# Day 3: ATAC-seq
+
+Today you will be focusing on investigating the ATAC-seq data generated in 
+Janes et al., 2018: "Chromatin accessibility dynamics across C. elegans 
+development and ageing".
+
+## Set up environment
+Once again, you need to make sure that you are working in the right 
+folder. Important packages will also be loaded at this point.
+
+```{r collapse = TRUE, eval = FALSE}
+    PROJECT_PATH <- getwd()
+    require(tidyverse)
+    require(rtracklayer)
+    require(htmlwidgets)
+    require(gprofiler2)
+    require(DOSE)
+    require(clusterProfiler)
+    #
+    require(org.Hs.eg.db)
+    require(org.Ce.eg.db)
+```
+
+## Load previous work
+The work done in Day 2 and Day 3 have been stored in an RData object.
+
+```{r collapse = TRUE, eval = FALSE}
+    load('results/Day2.RData')
+```
+
+## Get the ATAC-seq aging data
+The data can be found [online](https://elifesciences.org/articles/37344) 
+or reformatted for the purpose of the course in ./data/ATAC_aging.gff3 
+
+### Questions: 
+- Which format is the ATAC_aging.gff3 file? What does the file contain?
+- Look at the cluster information: can you visualize variations of 
+promoter accessibility during aging?
+- Use the Seqplots software to get more insights.
+- In which tissue(s) are the associated genes transcribed & translated?
+
+```{r collapse = TRUE, eval = FALSE}
+    REs <- rtracklayer::import('data/ATAC-seq_aging.gff3')
+    ATAC_aging <- mcols(REs)[, 8:12] %>% 
+        data.frame() %>% 
+        data.matrix() %>% 
+        as.data.frame() 
+    # Visualization in R
+    df <- data.frame(
+        locus = REs$locus,
+        apply(ATACage, 1, function(ROW) {log2(ROW/mean(ROW))}) %>% t() %>% data.frame(),
+        cluster = REs$ageing_prom_cluster_label
+    ) %>% 
+        gather(stage, expr, -cluster, -locus) %>%
+        mutate(stage = factor(stage, levels = c('FPM_ATAC_aYA', 'FPM_ATAC_aD3', 'FPM_ATAC_aD7', 'FPM_ATAC_aD10', 'FPM_ATAC_aD14'))) %>%
+        filter(cluster != '.')
+    p <- ggplot(df, aes(x = stage, y = expr, color = cluster, group = locus)) + 
+        geom_line(alpha = 0.05) + 
+        theme_classic() + 
+        facet_wrap(~cluster) 
+    # Use SeqPlots to visualize heatmaps
+    for (cluster in levels(df$cluster)) {
+        export(REs[REs$ageing_prom_cluster_label == cluster], paste0('ATAC_cluster-', cluster, '.bed'))
+    }
+    # Association between REs and proteins
+    list_genes_aging <- lapply(levels(df$cluster), function(cluster) {
+        proms <- REs[REs$ageing_prom_cluster_label == cluster & REs$regulatory_class %in% c('bidirect-promoter', 'fwd-promoter', 'rev-promoter')]
+        genes_cluster <- proms$WormBaseID %>% as.character() %>% strsplit(',') %>% unlist()
+        return(genes_cluster)
+    }) %>% setNames(levels(df$cluster))
+```
+
+## Investigate the genes associated to varying promoters during aging
+
+### Questions: 
+- What is the function of genes going up (down) during aging?
+- What are their counterpart in mammals?
+- What are the diseases associated to these genes?
+- Comment on the rationale of the analysis: we are looking at 
+genes associated to promoters de-regulated during aging... 
+
+```{r collapse = TRUE, eval = FALSE}
+    # GO enrichment analysis 
+    genes_down <- unique(unlist(list_genes_aging[2:5]))
+    genes_up <- unique(unlist(list_genes_aging[6:9]))
+    gos <- gost(
+        list(
+            up = genes_up, 
+            down = genes_down
+        ),
+        organism = 'celegans', 
+        multi_query = TRUE, 
+        user_threshold = 0.01, 
+        source = c('GO:BP', 'GO:MF', 'GO:CC')
+    )
+    p <- gostplot(gos, capped = TRUE, interactive = TRUE)
+    saveWidget(p, 'GOs.html')
+    # Homo sapiens homologs
+    ensembl <- useDataset("celegans_gene_ensembl", mart = useMart("ensembl"))
+    human_homologues_down <- getBM(
+        filters = c("ensembl_gene_id"),
+        values = genes_down, 
+        attributes = c('ensembl_gene_id', 'hsapiens_homolog_ensembl_gene'),
+        mart = ensembl
+    )
+    human_homologues_up <- getBM(
+        filters = c("ensembl_gene_id"),
+        values = genes_up, 
+        attributes = c('ensembl_gene_id', 'hsapiens_homolog_ensembl_gene'),
+        mart = ensembl
+    )
+    # DOSE
+    human_homologues_down_ENTREZ <- bitr(
+        human_homologues_down$hsapiens_homolog_ensembl_gene %>% '['(nchar(.) > 0), 
+        fromType = "ENSEMBL", 
+        toType = c("ENTREZID"), 
+        OrgDb = org.Hs.eg.db::org.Hs.eg.db
+    )$ENTREZID
+    diseases_enrichment_down <- enrichDO(
+        gene = human_homologues_down_ENTREZ, 
+        ont = "DO", 
+        pvalueCutoff = 0.01,
+        pAdjustMethod = "BH",
+        readable = TRUE
+    )
+```
+
+## Save your work!!
+Don't forget to save your progress!
+
+```{r collapse = TRUE, eval = FALSE}
+    save.image('results/Day3.RData')
+```
+
+---  
+
+# Day 4: ChIP-seq
+
+Today you will be focusing on investigating ChIP-seq data generated by 
+the modENCODE consortium, to understand which TFs are regulating the 
+promoters which are varying during aging
+
+## Set up environment
+Once again, you need to make sure that you are working in the right 
+folder. Important packages will also be loaded at this point.
+
+```{r collapse = TRUE, eval = FALSE}
+    PROJECT_PATH <- getwd()
+    require(tidyverse)
+    require(rtracklayer)
+    require(org.Ce.eg.db)
+    require(biomaRt)
+```
+
+## Load previous work
+The work done in Day 2 and Day 3 have been stored in an RData object.
+
+```{r collapse = TRUE, eval = FALSE}
+    load('results/Day3.RData')
+```
+
+## Get the ChIP-seq data
+
+### Questions: 
+- What is modENCODE? 
+- How to download all the data from modENCODE? 
+- What useful format can be used here to easily get information on 
+TF binding profiles? Is .bed format better than .bw format for 
+our purpose? Why?
+
+## Investigate the TFs associated to varying promoters during aging
+
+### Questions: 
+- How to summarize all the modENCODE data?
+- Which metric should be calculated to see if a TF is enriched in a 
+set of promoters? 
+- How can you represent the importance of all TFs in each cluster? 
+- Can you define binding motifs for the TFs enriched in some clusters? 
+
+## Defining key TFs involved in aging? 
+
+### Questions: 
+- Is there a group of motifs functionally interacting? 
+- What can you find in the literature about these factors?
+
+## Save your work!!
+Don't forget to save your progress!
+
+```{r collapse = TRUE, eval = FALSE}
+    save.image('results/Day4.RData')
+```
+
+---
+
+## SessionInfo 
+```{r echo=FALSE, collapse = TRUE, eval = TRUE}
+    sessionInfo()
+```
