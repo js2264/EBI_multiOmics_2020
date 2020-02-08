@@ -1,0 +1,606 @@
+---
+title: "Introduction to Multiomics Data Integration and Visualisation"
+author: Jacques SERIZAY
+date: "March 10-14, 2020"
+bibliography: bibliography.bib
+link-citations: yes
+biblio-style: numeric
+output:
+    html_document:
+        theme: flatly
+        highlight: tango
+        preserve_yaml: true
+        code_folding: hide
+        code_download: true
+        number_sections: true
+        df_print: tibble
+        toc: true
+        toc_depth: 2
+        toc_float:
+            collapsed: false
+    prettydoc::html_pretty:
+        theme: hpstr
+    rmdformats::readthedown:
+        highlight: tango
+        code_folding: hide
+---
+
+<!-- TOC START min:1 max:2 link:true asterisk:false update:true -->
+- [Day 1: Introduction](#day-1-introduction)
+    - [Research in aging](#research-in-aging)
+    - [Aging and the worm](#aging-and-the-worm)
+    - [The question](#the-question)
+    - [The approach](#the-approach)
+    - [About this vignette](#about-this-vignette)
+- [Day 2: Proteomics](#day-2-proteomics)
+    - [Set up R environment](#set-up-r-environment)
+    - [Load and inspect the data](#load-and-inspect-the-data)
+    - [Adding gene information](#adding-gene-information)
+    - [Separating into lists of tissue-specific proteins](#separating-into-lists-of-tissue-specific-proteins)
+    - [Compare it to existing tissue-specific datasets from RNA-seq](#compare-it-to-existing-tissue-specific-datasets-from-rna-seq)
+    - [Save your work!!](#save-your-work)
+- [Day 3: ATAC-seq](#day-3-atac-seq)
+    - [Set up R environment and load previous work](#set-up-r-environment-and-load-previous-work)
+    - [Investigate the ATAC-seq aging data](#investigate-the-atac-seq-aging-data)
+    - [Investigate the genes associated to varying promoters during aging](#investigate-the-genes-associated-to-varying-promoters-during-aging)
+    - [[EXTRA] Using external visualization tools](#extra-using-external-visualization-tools)
+    - [Save your work!!](#save-your-work-1)
+- [Day 4: ChIP-seq](#day-4-chip-seq)
+    - [[EXTRA] Get the ChIP-seq data by yourself from modENCODE platform](#extra-get-the-chip-seq-data-by-yourself-from-modencode-platform)
+    - [Set up R environment and load previous work](#set-up-r-environment-and-load-previous-work-1)
+    - [Investigate the TFs associated to varying promoters during aging](#investigate-the-tfs-associated-to-varying-promoters-during-aging)
+    - [Defining key TFs involved in aging?](#defining-key-tfs-involved-in-aging)
+    - [[EXTRA] Finding motifs associated to each TFs](#extra-finding-motifs-associated-to-each-tfs)
+    - [Save your work!!](#save-your-work-2)
+- [SessionInfo](#sessioninfo)
+- [References](#references)
+<!-- TOC END -->
+
+# Day 1: Introduction
+
+## Research in aging
+
+Aging is a time-dependent functional decline that affects most living organisms. It is characterized by a progressive loss of physiological integrity, leading to impaired function and increased vulnerability to death.
+
+The accumulation of cellular damage is widely considered to be the general cause of aging [@Lopez-Otnn2013Jun], which explains why the studies from the last three decades have mostly focused on the *cellular* aspects of aging.  
+Currently, the aging hallmarks are:  
+
+- Genomic instability;
+- Telomere attrition;
+- Epigenetic alterations; 
+- Loss of proteostasis;
+- Deregulated nutrient sensing;
+- Mitochondrial dysfunction;
+- Cellular senescence;
+- Stem cell exhaustion;
+- Altered intercellular communication.
+
+![](../img/aging_hallmarks.jpg)
+
+However, aging should not only be seen as a *cellular disfunction* but as an *organismal* process. All the cells within an organism are undergoing aging, and not all of them are aging simultaneously. Overall, different tissues are aging differently [@Son2019Apr]. Thus, aging is a decline affecting not only cellular components but also organismal biological processes in general. 
+
+![](../img/aging_tissues.jpg)
+
+## Aging and the worm 
+
+Aging research was inaugurated more than 30 years ago, following the isolation of the first long-lived strains in C. elegans [@Johnson2013Jul]. In the past three decades, the nematode played a fundamental role in aging research. It is a powerful model organism when it comes to studying aging:  
+
+- It has a short life cycle (~ 21 days in normal conditions);
+- Mutants can be easily generated and phenotypically screened for aging defects;
+- Longevity assays are easy to perform and very informative;
+- Its genome has been fully sequenced and presents fundamental resemblances with that of more complex metazoans. 
+
+One of the most used phenotypic assays in worm is the longevity assay. Longevity assays are useful to understand whether a gene is involved in aging [@Chen2015Oct]. RNAi is used to knock-down a gene of interest and the resulting longevity is measured. If the longevity increases, the gene function normally reduce it.  
+In worms, RNAi can be used in large-scale screens. RNAi screens have been performed and have led to the identification of tens of genes involved in aging and regulation of longevity in general. It has been instrumental to decipher the molecular pathways involved in aging [@Hamilton2005Jan].  
+
+![](../img/longevity_assay.jpg)
+
+## The question
+
+If RNAi has been instrumental to generally study the process of aging in worm, the readouts are generally phenotypic readouts, *e.g.* does the worm live longer? Or does it rapidly stop moving after knock-down? These readouts are poorly suited to understand the aging-related role of a protein coded by a given gene in specific tissues. For instance, *slo-1* is a gene coding for a potassium channel. Its mutation or knock-down accelerates aging [@Chen2013Dec]. Because we have some information about the nature and function of the coded protein, it is rather easy to speculate in each tissue it has an aging-related function (hint: the neurons!).  
+However, if we do not know anything about the gene (*e.g.* in which tissue it is expressed, which transcription factors regulate its expression, the type of protein encoded by it, ...), it becomes challenging to draw conclusions on the molecular mechanisms involving the protein encoded by the gene.  
+Rather than relying on RNAi screens, one could leverage the large amount of "omics" data generated in C. elegans to better characterize aging processes at the organismal level. The goal of this study is to analyze aging-related perturbations in worm in a **comprehensive** manner to (1) identify the tissues undergoing important remodeling during aging and (2) understand the molecular networks involved in aging. More specifically, we would like to fulfill the following aims:  
+
+1. Find tissue-specific proteins and genes deregulated during aging;
+2. Find their associations with known diseases;
+3. Find potential targets for drug engineering
+
+## The approach 
+
+RNAi has been extensively used to study aging in worm. However, next-generation techniques such as high-throughput sequencing or mass spectrometry now allow for more comprehensive multiomics studies of biological processes. We will rely on results from these techniques to: 
+
+1. Day 2: Annotate sets of tissue-specific proteins (using proteomics results) and compare it with sets of tissue-specific genes (using transcriptomics results);
+3. Day 3: Find genomic regions regulating these genes (using epigenomics results);
+4. Day 4: Identify networks of transcription factors regulating these genes (using epigenomics results).
+
+## About this vignette
+
+Over the next three days, we will be conducting analysis of several types of datasets in R. This vignette is to be used as a guideline and lists important questions or technical aspects. The R code is only here to suggest one solution to the question(s) raised. Before looking at it, it is recommended to investigate the data by yourself and try out your own commands.
+
+---  
+
+# Day 2: Proteomics
+
+Today we will be focusing on analyzing the proteomics data generated in @Reinke2017-jc: "In vivo mapping of tissue- and subcellular-specific proteomes in Caenorhabditis elegans".  
+Reading the abstract of the paper is recommended to understand what the authors have attempted to do. In short, the authors have used a protein proximity labelling technique to label cytoplasmic or nuclear proteins in four different tissues of the worm: intestine, epidermis, body wall muscle and pharyngeal muscle. Proteins enriched in each subcellular location or tissue were then identified by mass spectrometry. 
+
+## Set up R environment
+You will first need to make sure that you are working in the right folder. You can also load important packages at this point.
+
+```{r "Day2", collapse = TRUE}
+    PROJECT_PATH <- getwd()
+    require(tidyverse)
+    require(rtracklayer)
+    require(biomaRt)
+```
+
+## Load and inspect the data
+The data has been fetched from [the original paper](https://advances.sciencemag.org/highwire/filestream/195514/field_highwire_adjunct_files/1/1602426_TableS4.xlsx) and reformatted for the purpose of the course. Start by loading it from `data/1602426_TableS4.csv`. 
+
+### Questions (~15 min):
+- How many proteins are studied?
+- How many are in each tissue? 
+
+```{r collapse = TRUE, eval = TRUE}
+    proteomics <- read.csv(
+        file.path(PROJECT_PATH, '../data/1602426_TableS4_processed.csv'), 
+        na.strings = "NA"
+    )
+    # Number of proteins in the file
+    nrow(proteomics)
+    # Number of proteins detected in each tissue
+    colSums(proteomics[,38:45])
+```
+
+## Adding gene information
+This file only contains the protein names. Eventually, we will be 
+looking at genes as well. The simplest approach is to convert everything
+to unique gene IDs. 
+For this, we will rely on BiomaRt.
+
+### Questions (~45 min):
+- What is the difference between Swissprot and Trembl? 
+- Why is there less annotations from SwissProt?
+- Why does the original dataset contain both types of IDs?
+- Why are there some protein IDs that do not match any gene ID? 
+- Are there proteins coming from the same gene? 
+
+```{r collapse = TRUE, eval = TRUE}
+    # You can get IDs of genes and associated proteins using biomaRt
+    ### ensembl <- useDataset("celegans_gene_ensembl", mart = useMart("ensembl"))
+    ### ids <- getBM(
+    #     attributes = c("uniprotswissprot", "uniprotsptrembl", "wormbase_gene"),
+    #     mart = ensembl
+    # )
+    # Otherwise, you can also get the ids table from the data folder: 
+    ids <- read.table('../data/proteins_genes_IDs.txt', header = TRUE, sep = '\t')
+    # Merging SwissProt and Trembl IDs into one column will make your life easier
+    ids$protID <- paste0(ids$uniprotswissprot, ids$uniprotsptrembl)
+    # Then a simple match function can be used to translate the protein IDs into gene IDs
+    proteomics$WormBaseID <- ids$wormbase_gene[match(proteomics$UniProtKB, ids$protID)]
+    # Few proteins do not have any gene ID (why?). We will ignore these ones for the rest of the study.
+    proteomics <- proteomics[!is.na(proteomics$WormBaseID),]
+```
+
+## Separating into lists of tissue-specific proteins
+Let's figure out which proteins are specifically present in each tissue.
+
+### Questions (~30 min):
+- How many proteins are present specifically in one tissue?
+- For each set of proteins, are they more cytoplasmic or nuclear-enriched? 
+- Which ones are transcription factors? (Hint: there is a list of all transcription factors annotated in C. elegans in the data folder...)
+- What do you think about this? Are transcription factors enriched in the sets of tissue-specific proteins?
+
+```{r collapse = TRUE, eval = TRUE}
+    # Let's retrieve the list of proteins specifically enriched in a single tissue
+    list_prots <- lapply(
+        levels(proteomics$Tissue.specific), 
+        function(TISSUE) {
+            proteomics$UniProtKB %>%
+                '['(proteomics$Tissue.specific == TISSUE & !is.na(proteomics$Tissue.specific)) %>% 
+                as.character()
+        }
+    ) %>% setNames(levels(proteomics$Tissue.specific))
+    lengths(list_prots)
+    # Because we will need it later, you can also get the same list but with gene IDs
+    list_genes <- lapply(
+        levels(proteomics$Tissue.specific), 
+        function(TISSUE) {
+            proteomics$WormBaseID %>%
+                '['(proteomics$Tissue.specific == TISSUE & !is.na(proteomics$Tissue.specific)) %>% 
+                as.character()
+        }
+    ) %>% setNames(levels(proteomics$Tissue.specific))
+    # A list of most of the transcription factors found in C. elegans genome can be found in data/TFs.txt
+    tfs <- readLines('../data/TFs.txt')
+    length(tfs)
+    # Let's see which proteins enriched in tissues are transcription factors
+    tfs_in_tissue_specific_prots <- lapply(list_prots, function(prots) {
+        prots[proteomics$WormBaseID[match(prots, proteomics$UniProtKB)] %in% tfs]
+    })
+    # Let's see if transcription factors are enriched 
+    n_prots <- nrow(ids)
+    n_tfs <- length(tfs)
+    n_tissue_spe_prots <- sum(lengths(list_prots))
+    n_tfs_in_tissue_specific_prots <- sum(lengths(tfs_in_tissue_specific_prots))
+    contingency_matrix <- matrix(
+        cbind(
+            c(n_tfs_in_tissue_specific_prots, n_tfs - n_tfs_in_tissue_specific_prots), 
+            c(n_tissue_spe_prots - n_tfs_in_tissue_specific_prots, n_prots - n_tfs - n_tissue_spe_prots + n_tfs_in_tissue_specific_prots)
+        ), 
+        nrow = 2
+    )
+    fisher.test(contingency_matrix)
+```
+
+## Compare it to existing tissue-specific datasets from RNA-seq
+Let's see if this set of proteins overlap with tissue-specific gene annotation. For this, we can use the data in `data/gene_annotations.gff3`. This is a `.gff3` file, a format used to add specific information to gene annotations. This annotation file has not been published yet. 
+
+### Questions (~30 min):
+- Explain the fundamental differences between the 2 sets of data?
+- Are the experiments from the same developmental stage?
+- Are the two datasets consistent with to each other?
+- What are some good ways to represent the intersection between these datasets?
+- Can you comment on the list of proteins specifically present in pharyngeal muscles, when compared to the gene annotations from transcriptomics?
+
+```{r collapse = TRUE, eval = TRUE}
+    # Let's import the gene annotation information
+    genes <- import('../data/gene_annotations.gff3')
+    names(genes) <- genes$ID
+    # It will be easier if we convert the tissue-specific gene annotation to a vector
+    genes$which.tissues <- factor(genes$which.tissues, levels = c(
+        'Germline', 'Sperm', 'EarlyGermline', 'Neurons', 'Muscle', 'Hypod.', 'Intest.', 
+        'Germline_Neurons', 'Germline_Muscle', 'Germline_Hypod.', 'Germline_Intest.', 'Neurons_Muscle', 'Neurons_Hypod.', 'Neurons_Intest.', 'Muscle_Hypod.', 'Muscle_Intest.', 'Hypod._Intest.',
+        'Germline_Neurons_Muscle', 'Germline_Neurons_Hypod.', 'Germline_Neurons_Intest.', 'Germline_Muscle_Hypod.', 'Germline_Muscle_Intest.', 'Germline_Hypod._Intest.', 'Neurons_Muscle_Hypod.', 'Neurons_Muscle_Intest.', 'Neurons_Hypod._Intest.', 'Muscle_Hypod._Intest.', 
+        'Germline_Neurons_Muscle_Hypod.', 'Germline_Neurons_Muscle_Intest.', 'Germline_Neurons_Hypod._Intest.', 'Germline_Muscle_Hypod._Intest.', 'Neurons_Muscle_Hypod._Intest.', 
+        'Germline_Neurons_Muscle_Hypod._Intest.', 
+        'Soma', 'Ubiq.', 'Ubiq.-Reg', 'Unclassified', 'Low', 'non-prot-cod'
+    ))
+    # We can compare the two different tissue-specific annotations
+    lapply(list_genes, function(g) {
+        table(genes[g]$which.tissues)
+    })
+    # We can also plot the two different tissue-specific annotations as a heatmap
+    df <- data.frame(
+        transcriptome_annotations = genes[unlist(list_genes)]$which.tissues, 
+        proteomics_annotations = proteomics[match(unlist(list_genes), proteomics$WormBaseID),]$Tissue.specific
+    ) %>% 
+        table() %>% 
+        as.data.frame() 
+    p <- ggplot(df, aes(y = 1, x = transcriptome_annotations)) +
+        geom_tile(aes(fill = Freq)) + 
+        geom_text(aes(label = Freq)) +
+        scale_fill_gradientn(colours = c('white', 'orange', 'red')) + 
+        theme_bw() + 
+        facet_wrap(~proteomics_annotations) + 
+        labs(y = '', x = 'Transcriptomics-based annotations') + 
+        theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.title.y = element_blank()) + 
+        theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+    ggsave('../results/comparison-transcriptomics-proteomics.pdf', width = 15, height = 4)
+```
+
+## Save your work!!
+That's it for today! Don't forget to save your progress.
+
+```{r collapse = TRUE, eval = TRUE}
+    save.image('../results/Day2.RData')
+```
+
+--- 
+
+# Day 3: ATAC-seq
+
+Today you will be focusing on investigating the ATAC-seq data generated in @Janes2018Oct: "Chromatin accessibility dynamics across C. elegans development and ageing".  
+ATAC-seq is a method to profile genome-wide accessibility of the chromatin. Accessible (or "open") chromatin regions are the loci responsible for the regulation of gene expression. They are frequently called "Regulatory Elements" (REs). In @Janes2018Oct, whole worms have been used to perform ATAC-seq at different time points of their life cycle: at the young adult (YA) stage or after 3, 7, 10 or 13 days after the YA stage. Accessibility of all the known promoters (13,596) has been estimated throughout aging of the worm. A resulting matrix (13,596 promoters x 5 time points) has been generated and promoter accessibility changes have been computed. 1,800 promoters appeared to have significant accessibility variations during aging, and 8 clusters of promoters following similar changes have been annotated.  
+
+## Set up R environment and load previous work
+Once again, first make sure that you are working in the right folder. You can also load important packages at this point.
+
+```{r "Day3", collapse = TRUE, eval = TRUE}
+    PROJECT_PATH <- getwd()
+    require(tidyverse)
+    require(rtracklayer)
+    require(htmlwidgets)
+    require(gprofiler2)
+    require(DOSE)
+    require(clusterProfiler)
+    require(org.Hs.eg.db)
+    # The work done in Day 2 has been stored in an RData object.
+    load('../results/Day2.RData')
+```
+
+## Investigate the ATAC-seq aging data
+The data has been fetched from [the original paper](https://elifesciences.org/articles/37344) and reformatted for the purpose of the course. Start by loading it from `data/ATAC-seq_aging.gff3`. 
+
+### Questions (~30min): 
+- Which format is the `ATAC-seq_aging.gff3` file? What does the file contain?
+- Focus on the cluster information ("ageing_prom_cluster_label" column): How many promoters does each cluster contain?
+- Can you find a good way to visualize and compare variations of promoter accessibility during aging across clusters?
+- Discuss the nature of the accessibility variations in the different clusters.
+
+```{r collapse = TRUE, eval = TRUE}
+    REs <- import('../data/ATAC-seq_aging.gff3')
+    proms <- REs[REs$ageing_prom_cluster_label != '.']
+    ATAC_aging <- mcols(proms)[, 8:12] %>% 
+        data.frame() %>% 
+        data.matrix() %>% 
+        as.data.frame() 
+    # How many promoters does each cluster contain?
+    table(proms$ageing_prom_cluster_label)
+    # Comparison of accessibility changes across clusters
+    norm_changes_df <- apply(ATAC_aging, 1, function(ROW) {log2(ROW/mean(ROW))}) %>% 
+        t() %>% 
+        data.frame()
+    df <- data.frame(
+        locus = proms$locus,
+        norm_changes_df,
+        cluster = proms$ageing_prom_cluster_label
+    ) %>% 
+        gather(stage, expr, -cluster, -locus) %>%
+        mutate(stage = factor(stage, levels = colnames(norm_changes_df))) %>%
+        filter(cluster != '.')
+    p <- ggplot(df, aes(x = stage, y = expr, color = cluster, group = locus)) + 
+        geom_line(alpha = 0.05) + 
+        theme_bw() + 
+        facet_wrap(~cluster) +
+        theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.title.y = element_blank()) + 
+        theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) + 
+        theme(legend.position = 'none')
+    ggsave('../results/accessibility-changes_clusters.pdf', height = 6, width = 6.4)
+```
+
+### Questions (~20min): 
+- In which tissue(s) are the associated genes (from each cluster) translated? Use the proteomics annotations for this. 
+- What does it suggest about the changes occurring during aging at the organismal level? Which tissues seem to undergo changes during aging?
+
+```{r collapse = TRUE, eval = TRUE}
+    # Check the association between proms and proteins
+    list_genes_aging <- lapply(levels(df$cluster), function(cluster) {
+        proms <- proms[proms$ageing_prom_cluster_label == cluster & proms$regulatory_class %in% c('bidirect-promoter', 'fwd-promoter', 'rev-promoter')]
+        genes_cluster <- proms$WormBaseID %>% as.character() %>% strsplit(',') %>% unlist()
+        return(genes_cluster)
+    }) %>% setNames(levels(df$cluster))
+    # We can also plot something
+    df <- data.frame(
+        cluster_annotations = unlist(lapply(seq_along(list_genes_aging), function(K) {rep(names(list_genes_aging)[K], length(list_genes_aging[[K]]))})),
+        proteomics_annotations = proteomics[match(unlist(list_genes_aging), proteomics$WormBaseID),]$Tissue.specific
+    ) %>% 
+        table() %>% 
+        as.data.frame() %>% 
+        filter(cluster_annotations != 'stable')
+    p <- ggplot(df, aes(y = 1, x = cluster_annotations)) +
+        geom_tile(aes(fill = Freq)) + 
+        geom_text(aes(label = Freq)) +
+        scale_fill_gradientn(colours = c('white', 'orange', 'red')) + 
+        theme_bw() + 
+        facet_wrap(~proteomics_annotations) + 
+        labs(y = '', x = 'Ageing cluster') + 
+        theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.title.y = element_blank()) + 
+        theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+    ggsave('../results/comparison-ATAC-clusters-proteomics.pdf', width = 8, height = 4)
+```
+
+## Investigate the genes associated to varying promoters during aging
+Now that we know which genomic loci are varying during aging, we can retrieve the associated genes and investigate their function and their associated with diseases.
+
+### Questions (~20 min): 
+- What is the function of genes going up (down) during aging? Use gprofiler2 package to get some insights.
+
+```{r collapse = TRUE, eval = TRUE}
+    # What is the function of genes going up (down) during aging?
+    genes_down <- unique(unlist(list_genes_aging[1:4]))
+    genes_up <- unique(unlist(list_genes_aging[5:8]))
+    gos <- gost(
+        list(
+            up = genes_up, 
+            down = genes_down
+        ),
+        organism = 'celegans', 
+        multi_query = TRUE, 
+        user_threshold = 0.01, 
+        source = c('GO:BP', 'GO:MF', 'GO:CC')
+    )
+    p <- gostplot(gos, capped = TRUE, interactive = TRUE)
+```
+
+### Questions (~30 min): 
+- What are the homologs of these genes in mammals? Use biomaRt for this.
+- For the next step, you will need ENTREZ IDs rather than Ensembl IDs for the human homologues. Use the bitr function to translate the IDs. 
+
+```{r collapse = TRUE, eval = TRUE}
+    # What are the homologs of these genes in mammals? 
+    ensembl <- useDataset("celegans_gene_ensembl", mart = useMart("ensembl"))
+    #
+    human_homologues_down <- getBM(
+        filters = c("ensembl_gene_id"),
+        values = genes_down, 
+        attributes = c('ensembl_gene_id', 'hsapiens_homolog_ensembl_gene'),
+        mart = ensembl
+    )
+    human_homologues_down_ENTREZ <- human_homologues_down$hsapiens_homolog_ensembl_gene %>%
+        '['(nchar(.) > 0) %>%
+        bitr(fromType = "ENSEMBL", toType = c("ENTREZID"), OrgDb = org.Hs.eg.db) %>%
+        '['(,"ENTREZID")
+    #
+    human_homologues_up <- getBM(
+        filters = c("ensembl_gene_id"),
+        values = genes_up, 
+        attributes = c('ensembl_gene_id', 'hsapiens_homolog_ensembl_gene'),
+        mart = ensembl
+    )
+    human_homologues_up_ENTREZ <- human_homologues_up$hsapiens_homolog_ensembl_gene %>%
+        '['(nchar(.) > 0) %>%
+        bitr(fromType = "ENSEMBL", toType = c("ENTREZID"), OrgDb = org.Hs.eg.db) %>%
+        '['(,"ENTREZID")
+```
+
+### Questions (~20 min): 
+- What are the disease(s) associated to the human homologues of worm genes down-regulated during aging? Use the DOSE package for this.
+- Are the disease(s) associated to these genes consistent with the tissues in which these genes produce proteins?
+
+```{r collapse = TRUE, eval = TRUE}
+    diseases_enrichment_down <- enrichDO(
+        gene = human_homologues_down_ENTREZ, 
+        ont = "DO", 
+        pvalueCutoff = 0.01,
+        pAdjustMethod = "BH",
+        readable = TRUE
+    )
+    head(diseases_enrichment_down@result[,1:7])
+```
+
+## [EXTRA] Using external visualization tools
+Data visualization softwares are key to investigate. If you have some spare time, you can try to use Seqplots software [@Stempor2016Nov] to get more insights about the promoters clustered by their accessibility changes. The software requires: 
+
+- A genome to be installed (ce11, the latest genome version of C. elegans, should already be installed); 
+- Track files (typically `bigWig` files): for instance, genome-wide accessibility tracks generated during aging (see the `data/` folder...)
+- Some feature tracks (typically `bed` files): these files generally contain sets of genomic loci. For instance, you could generate 9 different `bed` files, each containing the promoters from a single cluster. 
+
+```{r collapse = TRUE, eval = FALSE}
+    # Export bed files of promoters from each cluster to visualize the accessibility profiles over each set using SeqPlots
+    for (cluster in levels(df$cluster)) {
+        export(granges(proms[proms$ageing_prom_cluster_label == cluster]), paste0('ATAC_cluster-', cluster, '.bed'))
+    }
+```
+
+Once the `bed` files are generated, you can load the tracks and the `bed` files in Seqplots and try the different functionalities of the software.
+
+## Save your work!!
+Don't forget to save your progress!
+
+```{r collapse = TRUE, eval = TRUE}
+    save.image('../results/Day3.RData')
+```
+
+---  
+
+# Day 4: ChIP-seq
+
+Today we try to understand which TFs are regulating the promoters which are varying during aging. For this, we will be investigating ChIP-seq data generated by the modENCODE/modERN consortium. This consortium has profiled (among other things) chromatin binding landscape for tens of transcription factors in worm, by expressing exogenous transgenes consisting of tagged transcription factors. We will try to identify which TFs are preferentially binding to each cluster of promoters co-regulated throughout aging. 
+
+## [EXTRA] Get the ChIP-seq data by yourself from modENCODE platform
+modENCODE/modERN data is accessible on the [ENCODE project web portal](https://www.encodeproject.org/), which hosts many more datasets from different model systems. Raw data and processed files can be downloaded directly, or a list of files can be retrieved and downloaded programatically. If you have some spare time, you can try to download the original processed files from there and start to wrangle them by yourself. 
+
+## Set up R environment and load previous work
+Once again, first make sure that you are working in the right folder. You can also load important packages at this point.
+
+```{r "Day4", collapse = TRUE, eval = TRUE}
+    PROJECT_PATH <- getwd()
+    require(tidyverse)
+    require(rtracklayer)
+    # The work done in Day 3 has been stored in an RData object.
+    load('../results/Day3.RData')
+```
+
+## Investigate the TFs associated to varying promoters during aging
+Because getting the right list of files, tyding the downloaded files, QC-ing and removing bad quality datasets, merging replicates, etc... always require a lot of data wrangling, a clean set of `.bed` files (one per transcription factor) is provided in the `data/` folder to avoid these cumbersome steps. Each `bed` file contains the transcription factor ChIP-seq "peaks", corresponding to the genomic loci bound by the transcription factor. Some TFs are binding to thousands of loci, some others are bound to a few dozens of them. Moreover, the quality of the ChIP-seq datasets can vary between samples.
+
+### Questions (~45 min): 
+- How to summarize modENCODE ChIP-seq data for our purpose? 
+- Import all the TF ChIP-seq data in R and integrate it to the 
+
+```{r warning = FALSE}
+    # Read all the TF CHIP-seq bed files
+    TFs <- list.files('../data/bed/') %>% gsub('.bed', '', .)
+    TFs_peaks <- lapply(TFs, function(TF) {
+        import(paste0('../data/bed/', TF, '.bed'))
+    }) %>% setNames(TFs)
+    # Compile a matrix summarizing which TFs are binding to which promoters
+    TFs_matrix <- matrix(
+        FALSE, 
+        ncol = length(TFs), 
+        nrow = length(proms)
+    )
+    colnames(TFs_matrix) <- TFs ; row.names(TFs_matrix) <- names(proms)
+    for (TF in TFs) {
+        hits <- subjectHits(findOverlaps(TFs_peaks[[TF]], proms))
+        TFs_matrix[hits, TF] <- TRUE
+    }
+    # Integrate this to the promoters GRanges object
+    proms$TFs <- apply(TFs_matrix, 1, function(ROW) {paste(colnames(TFs_matrix)[ROW], collapse = ',')})
+    proms$TF_nb <- rowSums(TFs_matrix)
+    proms$is_HOT <- ifelse(proms$TF_nb >= 18, TRUE, FALSE)
+    cold_proms <- proms[!proms$is_HOT]
+```
+
+### Questions (~1 h):
+- Which metric should be calculated to see if a TF is enriched in a set of promoters? 
+- Can the unelegant nested `for` loops be avoided?
+- How can you represent the enrichment of binding of each TF in each cluster? 
+
+```{r}
+    clusters <- c("I", "I+H [1]", "I+H [2]", "Mix1", "Mix2", "Mix3", "Mix4", "Mix5")
+    fisher_matrix <- data.frame(matrix(0, nrow = length(clusters), ncol = length(TFs))) ; colnames(fisher_matrix) = TFs ; row.names(fisher_matrix) = clusters
+    pval_matrix <- data.frame(matrix(0, nrow = length(clusters), ncol = length(TFs))) ; colnames(pval_matrix) = TFs ; row.names(pval_matrix) = clusters
+    pct_matrix <- data.frame(matrix(0, nrow = length(clusters), ncol = length(TFs))) ; colnames(pct_matrix) = TFs ; row.names(pct_matrix) = clusters
+    for (CLUSTER in clusters) {
+        # Get the cold promoters that are in the cluster CLUSTER
+        cold_proms_in_cluster <- cold_proms[cold_proms$ageing_prom_cluster_label == CLUSTER]
+        for (TF in TFs) {
+            # Get the cold promoters bound by the transcription factor TF
+            cold_proms_withTF <- sum(grepl(TF, cold_proms$TFs))
+            # Get the cold promoters that are in the cluster CLUSTER and bound by the transcription factor TF
+            cold_proms_in_cluster_withTF <- sum(grepl(TF, cold_proms_in_cluster$TFs))
+            # Build a contingency matrix
+            contingency_matrix <- matrix(
+                c(
+                    cold_proms_in_cluster_withTF, 
+                    length(cold_proms_in_cluster) - cold_proms_in_cluster_withTF, 
+                    cold_proms_withTF - cold_proms_in_cluster_withTF, 
+                    length(cold_proms) - cold_proms_withTF - length(cold_proms_in_cluster) + cold_proms_in_cluster_withTF
+                ), 
+                nrow = 2
+            )
+            # Run a Fisher test and populate the result data.frames
+            fisher <- fisher.test(contingency_matrix)
+            fisher_matrix[CLUSTER, TF] <- fisher$estimate
+            pval_matrix[CLUSTER, TF] <- fisher$p.val
+            pct_matrix[CLUSTER, TF] <- cold_proms_in_cluster_withTF/length(cold_proms_in_cluster)*100
+        }
+    }
+    # Filter the results to only see the significant ones
+    fisher_matrix_curated <- t(fisher_matrix)
+    fisher_matrix_curated[t(pval_matrix) > 0.01] <- 0 # Discard non-significant enrichments
+    fisher_matrix_curated <- fisher_matrix_curated[rowSums(fisher_matrix_curated > 2) > 1,] # Discard TFs that don't have more than 2-fold enrichment in at least 1 cluster
+    df <- fisher_matrix_curated %>% 
+        data.frame() %>%
+        setNames(clusters) %>% 
+        rownames_to_column('TF') %>%
+        gather('cluster', 'Odd_ratio', -TF)
+    p <- ggplot(df, aes(y = TF, x = cluster)) +
+        geom_tile(aes(fill = Odd_ratio)) + 
+        scale_fill_gradientn(colours = c('white', 'orange', 'darkred')) + 
+        theme_bw() + 
+        labs(y = 'TFs', x = 'Promoter clusters in aging') + 
+        theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+    ggsave('../results/TFs-enrichments_promoter-clusters.pdf', width = 5, height = 7)
+```
+
+## Defining key TFs involved in aging? 
+
+### Questions (~15 min): 
+- Is there a group of motifs functionally interacting? Use STRING to investigate this.
+- What can you find in the literature about these factors?
+
+If everything has been done correctly, you should obtain a graph like this in STRING: 
+
+![](../img/STRING_results.png)
+
+## [EXTRA] Finding motifs associated to each TFs
+Most transcription factors recognize specific sequence motifs to bind to DNA. Using [MEME web interface](http://meme-suite.org/) and the `bed` files located in `data/`, you can investigate which motifs are enriched in transcription factor binding sites (provided in the `.bed` files). 
+
+## Save your work!!
+Don't forget to save your progress!
+
+```{r collapse = TRUE, eval = TRUE}
+    save.image('../results/Day4.RData')
+```
+
+---
+
+# SessionInfo 
+```{r echo=FALSE, collapse = TRUE, eval = TRUE}
+    sessionInfo()
+```
+
+# References

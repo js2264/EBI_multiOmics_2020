@@ -7,5 +7,5 @@ Data Integration and Visualisation" in March 2020.
 To build the HTML version of the instructions (located in the doc folder), 
 the following command has been used: 
 ```r
-rmarkdown::render('doc/intructions.Rmd', output_format = 'rmdformats::readthedown')
+rmarkdown::render('doc/instructions.Rmd', output_format = 'rmdformats::readthedown')
 ```
