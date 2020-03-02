@@ -626,7 +626,7 @@ Because getting the right list of files, tyding the downloaded files, QC-ing and
 
 ### Questions (~15 min): 
 - Is there a group of motifs functionally interacting? Use STRING to investigate this.
-- What can you find in the literature about these factors?
+- What can you find in the literature about these factors? Look into the STRING output carefully... 
 
 If everything has been done correctly, you should obtain a graph like this in STRING: 
 
